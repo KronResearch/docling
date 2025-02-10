@@ -58,9 +58,17 @@ class StandardPdfPipeline(PaginatedPipeline):
         super().__init__(pipeline_options)
         self.pipeline_options: PdfPipelineOptions
 
-        artifacts_path: Optional[Path] = None
-        if pipeline_options.artifacts_path is not None:
+        # Always use global artifacts path if available, otherwise fall back to pipeline options
+        artifacts_path: Optional[Path] = settings.artifacts_path
+        if artifacts_path is None and pipeline_options.artifacts_path is not None:
             artifacts_path = Path(pipeline_options.artifacts_path).expanduser()
+
+        if artifacts_path is None or not artifacts_path.exists():
+            if not settings.allow_artifacts_download:
+                raise RuntimeError(
+                    f"Artifacts path {artifacts_path} does not exist and downloads are disabled. "
+                    "Please ensure the artifacts are pre-populated or enable downloads via DOCLING_ALLOW_ARTIFACTS_DOWNLOAD=1"
+                )
 
         self.keep_images = (
             self.pipeline_options.generate_page_images
@@ -144,6 +152,12 @@ class StandardPdfPipeline(PaginatedPipeline):
     def download_models_hf(
         local_dir: Optional[Path] = None, force: bool = False
     ) -> Path:
+        if not settings.allow_artifacts_download:
+            raise RuntimeError(
+                "Model downloads are disabled. Please set DOCLING_ALLOW_ARTIFACTS_DOWNLOAD=1 to enable downloads "
+                "or ensure models are pre-populated in the artifacts path."
+            )
+
         warnings.warn(
             "The usage of StandardPdfPipeline.download_models_hf() is deprecated "
             "use instead the utility `docling-tools models download`, or "

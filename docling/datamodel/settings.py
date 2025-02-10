@@ -1,8 +1,9 @@
 import sys
+import os
 from pathlib import Path
-from typing import Annotated, Tuple
+from typing import Annotated, Optional, Tuple
 
-from pydantic import BaseModel, PlainValidator
+from pydantic import BaseModel, PlainValidator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -62,6 +63,18 @@ class AppSettings(BaseSettings):
     debug: DebugSettings
 
     cache_dir: Path = Path.home() / ".cache" / "docling"
+    
+    # Global artifacts path - can be set via DOCLING_ARTIFACTS_PATH env var
+    # If not set, defaults to cache_dir/models
+    artifacts_path: Path = Field(
+        default_factory=lambda: Path(os.getenv("DOCLING_ARTIFACTS_PATH", "")) or Path.home() / ".cache" / "docling" / "models"
+    )
+    
+    # Flag to control whether docling should attempt to download missing artifacts
+    allow_artifacts_download: bool = Field(
+        default_factory=lambda: os.getenv("DOCLING_ALLOW_ARTIFACTS_DOWNLOAD", "0").lower() in ("1", "true", "yes"),
+        description="If False, docling will not attempt to download missing artifacts"
+    )
 
 
 settings = AppSettings(perf=BatchConcurrencySettings(), debug=DebugSettings())
